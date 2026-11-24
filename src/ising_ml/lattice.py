@@ -9,11 +9,7 @@ Conventions used throughout this package
 
       H(s) = - sum_{<ij>} s_i s_j
 
-  where the sum runs over nearest-neighbour pairs, each pair counted ONCE.
-
-Day 1: implement the three functions below. No Python loops over lattice
-sites -- everything can be written with whole-array NumPy operations.
-Hint: look up ``np.roll``.
+  where the sum runs over nearest-neighbour pairs, each pair counted once.
 """
 
 from __future__ import annotations
@@ -33,7 +29,15 @@ def neighbour_sum(spins: np.ndarray) -> np.ndarray:
     Array of shape (L, L) (integer dtype) where entry (i, j) equals
     s[i+1, j] + s[i-1, j] + s[i, j+1] + s[i, j-1], indices taken modulo L.
     """
-    raise NotImplementedError("Day 1")
+    # Sum the spins in the four nearest-neighbour directions.
+    neighbours = (
+        np.roll(spins, 1, axis=0)
+        + np.roll(spins, -1, axis=0)
+        + np.roll(spins, 1, axis=1)
+        + np.roll(spins, -1, axis=1)
+    )
+
+    return neighbours
 
 
 def energy(spins: np.ndarray) -> float:
