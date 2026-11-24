@@ -41,13 +41,11 @@ def neighbour_sum(spins: np.ndarray) -> np.ndarray:
 
 
 def energy(spins: np.ndarray) -> float:
-    """Total energy H(s) of a configuration (see module docstring).
+    """Total energy H(s) of a configuration (see module docstring)."""
+    # Count horizontal and vertical once.
+    energy_total = -np.sum(spins * (np.roll(spins, -1, axis=0) + np.roll(spins, -1, axis=1)))
 
-    Careful: every bond must be counted exactly once. ``neighbour_sum``
-    counts each bond twice -- think about how to use it, or use np.roll
-    in only two directions.
-    """
-    raise NotImplementedError("Day 1")
+    return float(energy_total)
 
 
 def magnetization(spins: np.ndarray) -> float:
@@ -56,4 +54,5 @@ def magnetization(spins: np.ndarray) -> float:
     Returns the *signed* value in [-1, 1]. (Below T_c you will mostly want
     |m|; we keep the sign here because the Z2 symmetry s -> -s flips it.)
     """
-    raise NotImplementedError("Day 1")
+    # Average the spins over the lattice.
+    return float(np.mean(spins))
