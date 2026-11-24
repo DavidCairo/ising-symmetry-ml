@@ -1,7 +1,5 @@
 """Markov-chain Monte Carlo sampling of the 2D Ising model.
 
-Day 2: implement ``checkerboard_masks``, ``metropolis_sweep`` and ``simulate``.
-
 Background
 ----------
 Metropolis: propose flipping spin s_i; the energy change is
@@ -24,6 +22,7 @@ so that every result in the repo is reproducible.
 """
 
 from __future__ import annotations
+from ising_ml.lattice import neighbour_sum
 
 import numpy as np
 
@@ -34,11 +33,22 @@ def checkerboard_masks(L: int) -> tuple[np.ndarray, np.ndarray]:
     black[i, j] is True when (i + j) is even, white is its complement.
     Raise ``ValueError`` if L is odd.
     """
-    raise NotImplementedError("Day 2")
+    # Check that L is even.
+    if L % 2 != 0:
+        raise ValueError("L must be even for checkerboard masks.")
+
+    # Form the coordinate grid.
+    (i, j) = np.indices((L, L))
+
+    # Assign colour.
+    black = (i + j) % 2 == 0
+    white = ~black
+
+    return black, white
 
 
 def metropolis_sweep(spins: np.ndarray, beta: float, rng: np.random.Generator) -> np.ndarray:
-    """Perform one checkerboard Metropolis sweep IN PLACE and return ``spins``.
+    """Perform one checkerboard Metropolis sweep in place and return ``spins``.
 
     Parameters
     ----------
@@ -49,7 +59,28 @@ def metropolis_sweep(spins: np.ndarray, beta: float, rng: np.random.Generator) -
     Hint: use ``neighbour_sum`` from ``ising_ml.lattice``, recompute it
     between the black and the white half-sweep.
     """
-    raise NotImplementedError("Day 2")
+
+    # Get checkerboard masks.
+    L = spins.shape[0]
+    black, white = checkerboard_masks(L)
+
+    # Perform the two half-sweeps: black first, then white.
+    for mask in (black, white):
+        # Calculate the energy change for every lattice site.
+        neighbours = neighbour_sum(spins)
+        dE = 2 * spins * neighbours
+
+        # Calculate the Metropolis acceptance probabilities.
+        acceptance = np.exp(-beta * dE)
+
+        # Generate random numbers for the lattice.
+        random_values = rng.random(spins.shape)
+
+        # Accept and perform flips only at sites belonging to this sublattice.
+        flip = mask & (random_values < acceptance)
+        spins[flip] *= -1
+
+    return spins
 
 
 def simulate(
@@ -74,4 +105,41 @@ def simulate(
     -------
     int8 array of shape (n_samples, L, L).
     """
-    raise NotImplementedError("Day 2")
+    # Validate the lattice size and simulation parameters.
+    if L % 2 != 0:
+        raise ValueError("L must be even.")
+    if T <= 0:
+        raise ValueError("Temperature must be positive.")
+    if n_samples < 0 or n_therm < 0 or n_between < 1:
+        raise ValueError("Invalid number of samples or sweeps.")
+
+    # Create a random number generator if none was provided.
+    if rng is None:
+        rng = np.random.default_rng()
+
+    # Initialise the lattice. Ising spins can only take two values: +1 or -1. Use np.int8 to save memory.
+    if init == "random":
+        spins = rng.choice([-1, 1], size=(L, L)).astype(np.int8)
+    elif init == "up":
+        spins = np.ones((L, L), dtype=np.int8)
+    else:
+        raise ValueError("init must be either 'random' or 'up'.")
+
+    # Calculate the inverse temperature.
+    beta = 1.0 / T
+
+    # Thermalise the lattice (discard these configurations).
+    for _ in range(n_therm):
+        metropolis_sweep(spins, beta, rng)
+
+    # Allocate memory for the sampled configurations.
+    samples = np.empty((n_samples, L, L), dtype=np.int8)
+
+    # Collect configurations after the specified number of sweeps.
+    for n in range(n_samples):
+        for _ in range(n_between):
+            metropolis_sweep(spins, beta, rng)
+
+        samples[n] = spins
+
+    return samples
