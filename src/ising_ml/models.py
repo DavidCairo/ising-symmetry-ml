@@ -3,9 +3,6 @@
 Every model maps a batch of shape (B, 1, L, L) to logits of shape (B,).
 (Return raw logits, NOT probabilities: use ``nn.BCEWithLogitsLoss`` in training.)
 
-Day 3: ``PlainCNN``.
-Day 4: ``Z2InvariantCNN``.
-
 Design notes
 ------------
 * Use ``padding_mode="circular"`` in ``nn.Conv2d``: the lattice is periodic,
@@ -42,10 +39,54 @@ class PlainCNN(nn.Module):
 
     def __init__(self, channels: int = 16, n_layers: int = 2, kernel_size: int = 3):
         super().__init__()
-        raise NotImplementedError("Day 3")
+
+        if n_layers < 1:
+            raise ValueError("n_layers must be at least 1.")
+        if kernel_size < 1 or kernel_size % 2 == 0:
+            raise ValueError("kernel_size must be a positive odd integer.")
+
+        padding = kernel_size // 2  # To keep the spatial dimensions the same
+
+        layers = []
+
+        # First layer: input channels = 1 (for Ising spins), output channels = channels
+        layers.append(
+            nn.Conv2d(1, channels, kernel_size=kernel_size, padding=padding, padding_mode="circular")
+        )
+        layers.append(nn.ReLU())
+
+        # Additional convolutional layers
+        for _ in range(n_layers - 1):
+            layers.append(
+                nn.Conv2d(
+                    channels, channels, kernel_size=kernel_size, padding=padding, padding_mode="circular"
+                )
+            )
+            layers.append(nn.ReLU())
+
+        self.features = nn.Sequential(*layers)
+
+        # Global average pooling
+        self.pool = nn.AdaptiveAvgPool2d(1)
+
+        # Linear head to produce one logit
+        self.classifier = nn.Linear(channels, 1)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        raise NotImplementedError("Day 3")
+        # Apply convolutional layers
+        x = self.features(x)
+
+        # Global average pooling
+        x = self.pool(x)
+
+        # Flatten to (B, channels)
+        x = torch.flatten(x, 1)
+
+        # Linear head
+        x = self.classifier(x)
+
+        # Return shape (B,)
+        return x.squeeze(-1)
 
 
 class Z2InvariantCNN(nn.Module):
